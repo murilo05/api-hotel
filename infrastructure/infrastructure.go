@@ -3,13 +3,14 @@ package infrastructure
 import (
 	"database/sql"
 	"fmt"
-	"log"
+
+	"api/api-hotel/domain/entities"
+	"api/api-hotel/domain/usecase"
+	"api/api-hotel/infrastructure/handler"
+	"api/api-hotel/infrastructure/repository"
 
 	"github.com/gin-gonic/gin"
-	"gitlab.engdb.com.br/apigin/domain/entities"
-	"gitlab.engdb.com.br/apigin/domain/usecase"
-	"gitlab.engdb.com.br/apigin/infrastructure/handler"
-	"gitlab.engdb.com.br/apigin/infrastructure/repository"
+	_ "github.com/lib/pq"
 )
 
 func Config(env entities.Env, r *gin.Engine) {
@@ -19,22 +20,30 @@ func Config(env entities.Env, r *gin.Engine) {
 
 func connection(env entities.Env) *sql.DB {
 
-	connection := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", env.DBUSER, env.DBPASSAWORD, env.DBHOST, env.DBPORT, env.DBNAME)
-	dbConn, err := sql.Open("mysql", connection)
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"password=%s dbname=%s sslmode=disable",
+		env.DBHOST, env.DBPORT, env.DBUSER, env.DBPASSAWORD, env.DBNAME)
+
+	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		log.Fatalf("Error while connecting with database %s", err)
+		panic(err)
 	}
 
-	repository.NewMysqlScheduleRepository(dbConn)
+	err = db.Ping()
+	if err != nil {
+		panic(err)
+	}
 
-	return dbConn
+	repository.NewMysqlHotelRepository(db)
+
+	return db
 
 }
 
 func handlerCfg(dbConn *sql.DB, r *gin.Engine) {
-	scheduleRepo := repository.NewMysqlScheduleRepository(dbConn)
+	hotelRepo := repository.NewMysqlHotelRepository(dbConn)
 
-	uu := usecase.NewScheduleUsecase(scheduleRepo)
+	uu := usecase.NewHotelUsecase(hotelRepo)
 
 	handler.NewProjectHandler(r, uu)
 

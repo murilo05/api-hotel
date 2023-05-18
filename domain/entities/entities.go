@@ -2,14 +2,13 @@ package entities
 
 type Error struct {
 	ErrorMessage string `json:"errorMessage"`
-	Code         int    `json:"code"`
 }
 
 type Env struct {
 	HOST        string
 	PORT        string
 	DBHOST      string
-	DBPORT      string
+	DBPORT      int
 	DBUSER      string
 	DBPASSAWORD string
 	DBNAME      string

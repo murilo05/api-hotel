@@ -3,190 +3,183 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"time"
+	"log"
+	"sync"
 
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
+	"api/api-hotel/domain/entities"
+	"api/api-hotel/interfaces"
 
 	_ "github.com/go-sql-driver/mysql"
-	"gitlab.engdb.com.br/apigin/domain/entities"
-	"gitlab.engdb.com.br/apigin/interfaces"
 )
 
 type mysqlRepo struct {
-	DB *sql.DB
+	DB    *sql.DB
+	mutex sync.Mutex
 }
 
-// NewMysqlAuthorRepository will create an implementation of author.Repository
-func NewMysqlScheduleRepository(db *sql.DB) interfaces.ScheduleRepo {
+func NewMysqlHotelRepository(db *sql.DB) interfaces.HotelRepo {
 	return &mysqlRepo{
 		DB: db,
 	}
 }
 
-func (m *mysqlRepo) GetSchedules(ctx context.Context) ([]entities.ResponseGetSchudeles, int, error) {
+func (m *mysqlRepo) ListUsers(ctx context.Context, userInfo entities.User) (users []entities.User, err error) {
 
-	query := "SELECT * FROM agendamentos"
+	var param *string
+	var query string
+
+	if userInfo.Name != "" {
+		param = &userInfo.Name
+		query = "select * from public.user where name = $1"
+	} else if userInfo.Document != "" {
+		param = &userInfo.Document
+		query = "select * from public.user where document = $1"
+	} else if userInfo.Phone != "" {
+		param = &userInfo.Phone
+		query = "select * from public.user where phone = $1"
+	} else {
+		query = "select * from public.user"
+	}
 
 	stmt, err := m.DB.PrepareContext(ctx, query)
 	if err != nil {
-		fmt.Println("Err", err.Error())
-		return nil, 500, err
+		log.Println("Err: ", err.Error())
+		return
 	}
 
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		fmt.Println("Err", err.Error())
-		return nil, 500, err
-	}
+	var rows *sql.Rows
 
-	schedules := []entities.ResponseGetSchudeles{}
+	if param == nil {
+		rows, err = stmt.QueryContext(ctx)
+		if err != nil {
+			log.Println("Err: ", err.Error())
+			return
+		}
+	} else {
+		rows, err = stmt.QueryContext(ctx, param)
+		if err != nil {
+			log.Println("Err: ", err.Error())
+			return
+		}
+	}
 
 	for rows.Next() {
-		var schedule entities.ResponseGetSchudeles
+		var user entities.User
 
-		err = rows.Scan(&schedule.Company.CNPJ, &schedule.Hour, &schedule.FinalHour)
+		err = rows.Scan(&user.ID, &user.Name, &user.Document, &user.Phone)
 		if err != nil {
-			fmt.Println("Err", err.Error())
-			return nil, 500, err
+			log.Println("Err: ", err.Error())
+			return users, err
 		}
 
-		resp, err := http.Get("https://receitaws.com.br/v1/cnpj/" + schedule.Company.CNPJ)
-		if err != nil {
-			schedule.AWS = "Não foi possivel consultar a razão social"
-		} else {
-			bodyAWS, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				schedule.AWS = "Não foi possivel consultar a razão social"
-			} else {
-				json.Unmarshal(bodyAWS, &schedule.AWS)
-
-			}
-		}
-
-		schedules = append(schedules, schedule)
-	}
-	if len(schedules) == 0 {
-		return schedules, 204, nil
+		users = append(users, user)
 	}
 
-	return schedules, 200, nil
+	return
 }
-func (m *mysqlRepo) CreateSchedule(ctx context.Context, body entities.InputSchedule) (int, error) {
+func (m *mysqlRepo) DeleteUser(ctx context.Context, userID int) (err error) {
+	query := "DELETE FROM public.user WHERE id = $1"
 
-	finalHour, err := time.Parse("15:04", body.Hour)
+	stmt, err := m.DB.PrepareContext(ctx, query)
 	if err != nil {
-		return 500, err
+		log.Println("Err: ", err.Error())
+		return
 	}
 
-	finalHour.Hour()
-
-	finalHour = finalHour.Add(1 * time.Hour)
-
-	finalHourstr := finalHour.Format("15:04")
-
-	tx, err := m.DB.BeginTx(ctx, nil)
+	_, err = stmt.ExecContext(ctx, userID)
 	if err != nil {
-		return 500, err
+		log.Println("Err: ", err.Error())
+		return
 	}
 
-	query := "INSERT INTO agendamentos (cnpj,horario_inicial, horario_final) VALUES (?,?,?)"
-
-	_, err = tx.ExecContext(ctx, query, body.Company.CNPJ, body.Hour, finalHourstr)
-	if err != nil {
-		fmt.Println("err", err.Error())
-		return 500, err
-	}
-
-	err = m.updateAvailability(ctx, body, tx)
-	if err != nil {
-		fmt.Println("err", err.Error())
-		return 500, err
-	}
-
-	tx.Commit()
-
-	return 200, nil
+	return nil
 }
 
-func (m *mysqlRepo) updateAvailability(ctx context.Context, body entities.InputSchedule, tx *sql.Tx) error {
-	query := "UPDATE horarios SET disponibilidade = 0 WHERE horarios_iniciais = ?"
+func (m *mysqlRepo) UpdateUser(ctx context.Context, user entities.User, userID int) (err error) {
+	query := "UPDATE public.user SET name = $1, document = $2, phone = $3 WHERE id = $4"
 
-	_, err := tx.ExecContext(ctx, query, body.Hour)
+	stmt, err := m.DB.PrepareContext(ctx, query)
 	if err != nil {
-		fmt.Println("err", err.Error())
-		return err
+		log.Println("Err: ", err.Error())
+		return
+	}
+
+	_, err = stmt.ExecContext(ctx, user.Name, user.Document, user.Phone, userID)
+	if err != nil {
+		log.Println("Err: ", err.Error())
+		return
 	}
 
 	return nil
 
 }
 
-func (m *mysqlRepo) GetAllHours(ctx context.Context) ([]entities.ResponseAvailability, int, error) {
-	query := "SELECT horarios_iniciais, horarios_finais, disponibilidade FROM horarios "
-
-	stmt, err := m.DB.PrepareContext(ctx, query)
+func (m *mysqlRepo) RegisterUser(ctx context.Context, user entities.User) (err error) {
+	query := `INSERT INTO public.user (name, document, phone) 
+    VALUES ($1, $2, $3)`
+	_, err = m.DB.Exec(query, user.Name, user.Document, user.Phone)
 	if err != nil {
-		fmt.Println("aqui2", err.Error())
-		return nil, 500, err
+		return
 	}
 
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		fmt.Println("aqui", err.Error())
-		return nil, 500, err
-	}
-
-	schedules := []entities.ResponseAvailability{}
-
-	for rows.Next() {
-		var schedule entities.ResponseAvailability
-
-		err = rows.Scan(&schedule.StartingHour, &schedule.FinalHour, &schedule.AvailableFromSQL)
-		if err != nil {
-			fmt.Println("Erro aqui", err.Error())
-			return nil, 500, err
-		}
-
-		schedules = append(schedules, schedule)
-	}
-	if len(schedules) == 0 {
-		return schedules, 204, nil
-	}
-
-	return schedules, 200, nil
-
+	return nil
 }
 
-func (m *mysqlRepo) IsHourAvailabe(ctx context.Context, body entities.InputSchedule) (bool, int, error) {
-	query := "SELECT horarios_iniciais, horarios_finais, disponibilidade FROM horarios WHERE horarios_iniciais = ? AND disponibilidade = 1"
+func (m *mysqlRepo) IsRoomEmpty(ctx context.Context, roomID int) (isRoomEmpty bool, err error) {
+	query := "SELECT * FROM public.room WHERE ID = $1 and AVAILABLE = true"
 
 	stmt, err := m.DB.PrepareContext(ctx, query)
 	if err != nil {
-		fmt.Println("aqui2", err.Error())
-		return false, 500, err
+		log.Println("Err: ", err.Error())
+		return
 	}
 
-	rows, err := stmt.QueryContext(ctx, body.Hour)
+	rows, err := stmt.QueryContext(ctx, roomID)
 	if err != nil {
-		fmt.Println("aqui", err.Error())
-		return false, 500, err
+		log.Println("Err: ", err.Error())
+		return
 	}
 
 	if rows.Next() {
-		var schedule entities.ResponseAvailability
-
-		err = rows.Scan(&schedule.StartingHour, &schedule.FinalHour, &schedule.AvailableFromSQL)
-		if err != nil {
-			fmt.Println("Erro aqui", err.Error())
-			return false, 500, err
-		}
-
-		return true, 200, nil
-
+		isRoomEmpty = true
+		return
 	}
 
-	return false, 400, nil
+	isRoomEmpty = false
+
+	return
+}
+
+func (m *mysqlRepo) RegisterReservation(ctx context.Context, acommodation entities.Acommodation, price float64) (err error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	tx, err := m.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		err = tx.Commit()
+	}()
+
+	_, err = tx.ExecContext(ctx, `
+	INSERT INTO public.acommodation (user_id, room_id, check_in, check_out, price) 
+    VALUES ($1, $2, $3, $4, $5)
+    `, acommodation.UserID, acommodation.RoomID, acommodation.CheckIn, acommodation.Checkout, price)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
+        UPDATE public.room SET available = false WHERE id = $1
+    `, acommodation.RoomID)
+	if err != nil {
+		return err
+	}
+
+	return
 }

@@ -3,12 +3,14 @@ package interfaces
 import (
 	"context"
 
-	"gitlab.engdb.com.br/apigin/domain/entities"
+	"api/api-hotel/domain/entities"
 )
 
-type ScheduleRepo interface {
-	CreateSchedule(ctx context.Context, body entities.InputSchedule) (int, error)
-	GetSchedules(ctx context.Context) ([]entities.ResponseGetSchudeles, int, error)
-	GetAllHours(ctx context.Context) ([]entities.ResponseAvailability, int, error)
-	IsHourAvailabe(ctx context.Context, body entities.InputSchedule) (bool, int, error)
+type HotelRepo interface {
+	ListUsers(ctx context.Context, userInfo entities.User) (user []entities.User, err error)
+	RegisterUser(ctx context.Context, user entities.User) (err error)
+	UpdateUser(ctx context.Context, user entities.User, userID int) (err error)
+	DeleteUser(ctx context.Context, userID int) (err error)
+	RegisterReservation(ctx context.Context, acommodation entities.Acommodation, price float64) (err error)
+	IsRoomEmpty(ctx context.Context, roomID int) (isRoomEmpty bool, err error)
 }

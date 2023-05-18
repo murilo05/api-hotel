@@ -3,81 +3,101 @@ package usecase
 import (
 	"context"
 	"errors"
+	"time"
 
-	"gitlab.engdb.com.br/apigin/domain/entities"
-	"gitlab.engdb.com.br/apigin/interfaces"
-	errorUtils "gitlab.engdb.com.br/apigin/utils/error"
+	"api/api-hotel/domain/entities"
+	"api/api-hotel/interfaces"
 )
 
-type scheduleUsecase struct {
-	scheduleRepo interfaces.ScheduleRepo
+type hotelUsecase struct {
+	hotelRepo interfaces.HotelRepo
 }
 
-func NewScheduleUsecase(us interfaces.ScheduleRepo) interfaces.ScheduleUseCase {
-	return &scheduleUsecase{
-		scheduleRepo: us,
+func NewHotelUsecase(us interfaces.HotelRepo) interfaces.ScheduleUseCase {
+	return &hotelUsecase{
+		hotelRepo: us,
 	}
 }
 
-func (u *scheduleUsecase) GetSchedules(ctx context.Context) ([]entities.ResponseGetSchudeles, int, *entities.Error) {
+const (
+	weekPrice          = 120.0
+	weekEndPrice       = 150.0
+	garageWeekPrice    = 15.0
+	garageWeekEndPrice = 20.0
+	extraDayPrice      = 1
+	checkOutHour       = 16
+	checkOutMinutes    = 30
+	numRooms           = 50
+)
 
-	schedules, code, err := u.scheduleRepo.GetSchedules(ctx)
+func (u *hotelUsecase) ListUsers(ctx context.Context, userInfo entities.User) (users []entities.User, err error) {
+
+	users, err = u.hotelRepo.ListUsers(ctx, userInfo)
 	if err != nil {
-		errResp := errorUtils.CreateError(code, err.Error())
-		return nil, code, &errResp
+		return
 	}
 
-	return schedules, code, nil
+	return
 }
 
-func (u *scheduleUsecase) CreateSchedule(ctx context.Context, body entities.InputSchedule) (int, *entities.Error) {
-
-	ok, code, err := u.scheduleRepo.IsHourAvailabe(ctx, body)
-	if err != nil {
-		errResp := errorUtils.CreateError(code, err.Error())
-		return code, &errResp
-	}
-
-	if !ok {
-		errResp := errorUtils.CreateError(code, errors.New("horario indisponivel").Error())
-		return code, &errResp
-	}
-
-	code, errors := u.scheduleRepo.CreateSchedule(ctx, body)
-	if errors != nil {
-		errResp := errorUtils.CreateError(code, errors.Error())
-		return code, &errResp
-	}
-
-	return 200, nil
+func (u *hotelUsecase) UpdateUser(ctx context.Context, user entities.User, userID int) (err error) {
+	err = u.hotelRepo.UpdateUser(ctx, user, userID)
+	return
 }
 
-func (u *scheduleUsecase) CheckScheduleAvailability(ctx context.Context) ([]entities.ResponseAvailability, int, *entities.Error) {
+func (u *hotelUsecase) DeleteUser(ctx context.Context, userID int) (err error) {
+	err = u.hotelRepo.DeleteUser(ctx, userID)
+	return
+}
 
-	ScheduleAvailability, code, err := u.scheduleRepo.GetAllHours(ctx)
+func (u *hotelUsecase) RegisterUser(ctx context.Context, user entities.User) (err error) {
+
+	err = u.hotelRepo.RegisterUser(ctx, user)
 	if err != nil {
-		errResp := errorUtils.CreateError(code, err.Error())
-		return nil, code, &errResp
+		return
 	}
 
-	outTransformed := []entities.ResponseAvailability{}
-	var available bool
+	return nil
 
-	for _, x := range ScheduleAvailability {
+}
 
-		if x.AvailableFromSQL == 1 {
-			available = true
+func (u *hotelUsecase) RegisterReservation(ctx context.Context, acommodation entities.Acommodation) (err error) {
+	isRoomEmpty, err := u.hotelRepo.IsRoomEmpty(ctx, acommodation.RoomID)
+	if err != nil {
+		return
+	}
+
+	if !isRoomEmpty {
+		err = errors.New("this room is already in use")
+		return
+	}
+
+	price := u.calculatePrice(acommodation)
+
+	err = u.hotelRepo.RegisterReservation(ctx, acommodation, price)
+
+	return
+}
+
+func (u *hotelUsecase) calculatePrice(acommodation entities.Acommodation) float64 {
+	numWeekdays := 0
+	numWeekends := 0
+	for d := acommodation.CheckIn; d.Before(acommodation.Checkout); d = d.AddDate(0, 0, 1) {
+		if d.Weekday() == time.Saturday || d.Weekday() == time.Sunday {
+			numWeekends++
 		} else {
-			available = false
+			numWeekdays++
 		}
-
-		outTransformed = append(outTransformed, entities.ResponseAvailability{
-			StartingHour: x.StartingHour,
-			FinalHour:    x.FinalHour,
-			Available:    available,
-		})
 	}
 
-	return outTransformed, 200, nil
+	price := float64(numWeekdays)*weekPrice + float64(numWeekends)*weekEndPrice
+	if acommodation.Garage {
+		price += float64(numWeekdays)*garageWeekPrice + float64(numWeekends)*garageWeekEndPrice
+	}
 
+	if acommodation.Checkout.Hour() >= checkOutHour && acommodation.Checkout.Minute() >= checkOutMinutes {
+		price += weekPrice + weekEndPrice
+	}
+
+	return price
 }

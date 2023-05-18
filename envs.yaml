@@ -1,8 +1,8 @@
 HOST: "localhost"
 PORT: "8080"
-DBHOST: "127.0.0.1"
-DBPORT: "3306"
-DBUSER: "root"
-DBPASSAWORD: ""
-DBNAME: "tc"
+DBHOST: "localhost"
+DBPORT: 5432
+DBUSER: "admin"
+DBPASSAWORD: "root"
+DBNAME: "hotel"
 TIMEOUT: 300000
