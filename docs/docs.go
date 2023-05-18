@@ -25,7 +25,37 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/reservations": {
+        "/reservation": {
+            "get": {
+                "description": "Get a list of all Reservation",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservation"
+                ],
+                "summary": "List all Reservation",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/entities.Acommodation"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/entities.Error"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Register a new reservation for a user in a room",
                 "consumes": [
@@ -35,7 +65,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Reservations"
+                    "Reservation"
                 ],
                 "summary": "Register Reservation",
                 "parameters": [
@@ -261,6 +291,9 @@ const docTemplate = `{
         "entities.Acommodation": {
             "type": "object",
             "properties": {
+                "Id": {
+                    "type": "integer"
+                },
                 "checkIn": {
                     "type": "string"
                 },
@@ -269,6 +302,9 @@ const docTemplate = `{
                 },
                 "garage": {
                     "type": "boolean"
+                },
+                "price": {
+                    "type": "number"
                 },
                 "roomId": {
                     "type": "integer"

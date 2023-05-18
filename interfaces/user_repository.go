@@ -13,4 +13,5 @@ type HotelRepo interface {
 	DeleteUser(ctx context.Context, userID int) (err error)
 	RegisterReservation(ctx context.Context, acommodation entities.Acommodation, price float64) (err error)
 	IsRoomEmpty(ctx context.Context, roomID int) (isRoomEmpty bool, err error)
+	ListAcommodations(ctx context.Context) (acommodtions []entities.Acommodation, err error)
 }

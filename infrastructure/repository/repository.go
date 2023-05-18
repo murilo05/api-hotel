@@ -183,3 +183,33 @@ func (m *mysqlRepo) RegisterReservation(ctx context.Context, acommodation entiti
 
 	return
 }
+
+func (m *mysqlRepo) ListAcommodations(ctx context.Context) (acommodations []entities.Acommodation, err error) {
+
+	query := "select * from public.acommodation"
+	stmt, err := m.DB.PrepareContext(ctx, query)
+	if err != nil {
+		log.Println("Err: ", err.Error())
+		return
+	}
+
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		log.Println("Err: ", err.Error())
+		return
+	}
+
+	for rows.Next() {
+		var acommodation entities.Acommodation
+
+		err = rows.Scan(&acommodation.ID, &acommodation.UserID, &acommodation.RoomID, &acommodation.CheckIn, &acommodation.Checkout, &acommodation.Price)
+		if err != nil {
+			log.Println("Err: ", err.Error())
+			return
+		}
+
+		acommodations = append(acommodations, acommodation)
+	}
+
+	return
+}

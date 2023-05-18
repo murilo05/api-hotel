@@ -13,7 +13,7 @@ type hotelUsecase struct {
 	hotelRepo interfaces.HotelRepo
 }
 
-func NewHotelUsecase(us interfaces.HotelRepo) interfaces.ScheduleUseCase {
+func NewHotelUsecase(us interfaces.HotelRepo) interfaces.HotelUseCase {
 	return &hotelUsecase{
 		hotelRepo: us,
 	}
@@ -33,10 +33,6 @@ const (
 func (u *hotelUsecase) ListUsers(ctx context.Context, userInfo entities.User) (users []entities.User, err error) {
 
 	users, err = u.hotelRepo.ListUsers(ctx, userInfo)
-	if err != nil {
-		return
-	}
-
 	return
 }
 
@@ -53,11 +49,7 @@ func (u *hotelUsecase) DeleteUser(ctx context.Context, userID int) (err error) {
 func (u *hotelUsecase) RegisterUser(ctx context.Context, user entities.User) (err error) {
 
 	err = u.hotelRepo.RegisterUser(ctx, user)
-	if err != nil {
-		return
-	}
-
-	return nil
+	return
 
 }
 
@@ -100,4 +92,9 @@ func (u *hotelUsecase) calculatePrice(acommodation entities.Acommodation) float6
 	}
 
 	return price
+}
+
+func (u *hotelUsecase) ListAcommodations(ctx context.Context) (acommodations []entities.Acommodation, err error) {
+	acommodations, err = u.hotelRepo.ListAcommodations(ctx)
+	return
 }

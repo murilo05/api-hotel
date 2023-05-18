@@ -41,3 +41,14 @@ The server should start at: [`http:localhost:8080`](http:localhost:8080)
 ## Architecture Goals
 
 1. Follow the concepts of the clean architecture, with extensive use of interfaces.
+
+## Attention! This small project was developed in two days and might have pendencies
+-Database model improvements
+
+-Missing some GET endpoints
+
+-Validate requests with token
+
+-Create database cache
+
+-Unit testing

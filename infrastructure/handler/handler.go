@@ -17,34 +17,35 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ScheduleHandler struct {
-	scheduleUseCase interfaces.ScheduleUseCase
+type HotelHandler struct {
+	HotelUseCase interfaces.HotelUseCase
 }
 
-func NewProjectHandler(r *gin.Engine, us interfaces.ScheduleUseCase) *gin.Context {
-	handler := &ScheduleHandler{
-		scheduleUseCase: us,
+func NewProjectHandler(r *gin.Engine, us interfaces.HotelUseCase) *gin.Context {
+	handler := &HotelHandler{
+		HotelUseCase: us,
 	}
 	r.POST("/user", handler.registerUser)
 	r.GET("/user", handler.listUsers)
 	r.PUT("/user/:id", handler.updateUser)
 	r.DELETE("/user/:id", handler.deleteUser)
-	r.POST("/reservations", handler.registerReservation)
+	r.POST("/reservation", handler.registerReservation)
+	r.GET("/reservation", handler.listReservation)
 
 	return nil
 }
 
 // @Summary Register Reservation
 // @Description Register a new reservation for a user in a room
-// @Tags Reservations
+// @Tags Reservation
 // @Accept  json
 // @Produce  json
 // @Param   body     body    entities.Acommodation    true        "reservation info"
 // @Success 201 {string} string	"Reservation created"
 // @Failure 400 {object} entities.Error
 // @Failure 500 {object} entities.Error
-// @Router /reservations [post]
-func (uh *ScheduleHandler) registerReservation(c *gin.Context) {
+// @Router /reservation [post]
+func (uh *HotelHandler) registerReservation(c *gin.Context) {
 	ctx := context.Background()
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
@@ -69,7 +70,7 @@ func (uh *ScheduleHandler) registerReservation(c *gin.Context) {
 		return
 	}
 
-	err = uh.scheduleUseCase.RegisterReservation(ctx, acommodation)
+	err = uh.HotelUseCase.RegisterReservation(ctx, acommodation)
 	if err != nil {
 		errResp := errorUtils.CreateError(err.Error())
 		c.JSON(500, errResp)
@@ -88,7 +89,7 @@ func (uh *ScheduleHandler) registerReservation(c *gin.Context) {
 // @Failure 400 {object} entities.Error
 // @Failure 500 {object} entities.Error
 // @Router /users/{id} [delete]
-func (uh *ScheduleHandler) deleteUser(c *gin.Context) {
+func (uh *HotelHandler) deleteUser(c *gin.Context) {
 	ctx := context.Background()
 
 	userID := c.Param("id")
@@ -106,7 +107,7 @@ func (uh *ScheduleHandler) deleteUser(c *gin.Context) {
 		return
 	}
 
-	err = uh.scheduleUseCase.DeleteUser(ctx, intUserID)
+	err = uh.HotelUseCase.DeleteUser(ctx, intUserID)
 	if err != nil {
 		errResp := errorUtils.CreateError(err.Error())
 		c.JSON(500, errResp)
@@ -127,7 +128,7 @@ func (uh *ScheduleHandler) deleteUser(c *gin.Context) {
 // @Failure 400 {object} entities.Error
 // @Failure 500 {object} entities.Error
 // @Router /users/{id} [put]
-func (uh *ScheduleHandler) updateUser(c *gin.Context) {
+func (uh *HotelHandler) updateUser(c *gin.Context) {
 	ctx := context.Background()
 
 	userID := c.Param("id")
@@ -167,7 +168,7 @@ func (uh *ScheduleHandler) updateUser(c *gin.Context) {
 		return
 	}
 
-	err = uh.scheduleUseCase.UpdateUser(ctx, user, intUserID)
+	err = uh.HotelUseCase.UpdateUser(ctx, user, intUserID)
 	if err != nil {
 		errResp := errorUtils.CreateError(err.Error())
 		c.JSON(500, errResp)
@@ -188,7 +189,7 @@ func (uh *ScheduleHandler) updateUser(c *gin.Context) {
 // @Success 200 {array} entities.User
 // @Failure 500 {object} entities.Error
 // @Router /users [get]
-func (uh *ScheduleHandler) listUsers(c *gin.Context) {
+func (uh *HotelHandler) listUsers(c *gin.Context) {
 	ctx := context.Background()
 
 	name := c.Query("name")
@@ -201,7 +202,7 @@ func (uh *ScheduleHandler) listUsers(c *gin.Context) {
 		Phone:    phone,
 	}
 
-	users, err := uh.scheduleUseCase.ListUsers(ctx, user)
+	users, err := uh.HotelUseCase.ListUsers(ctx, user)
 	if err != nil {
 		errResp := errorUtils.CreateError(err.Error())
 		c.JSON(500, errResp)
@@ -221,7 +222,7 @@ func (uh *ScheduleHandler) listUsers(c *gin.Context) {
 // @Failure 400 {object} entities.Error
 // @Failure 500 {object} entities.Error
 // @Router /users [post]
-func (uh *ScheduleHandler) registerUser(c *gin.Context) {
+func (uh *HotelHandler) registerUser(c *gin.Context) {
 	ctx := context.Background()
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
@@ -246,7 +247,7 @@ func (uh *ScheduleHandler) registerUser(c *gin.Context) {
 		return
 	}
 
-	err = uh.scheduleUseCase.RegisterUser(ctx, user)
+	err = uh.HotelUseCase.RegisterUser(ctx, user)
 	if err != nil {
 		errResp := errorUtils.CreateError(err.Error())
 		c.JSON(500, errResp)
@@ -254,4 +255,25 @@ func (uh *ScheduleHandler) registerUser(c *gin.Context) {
 	}
 
 	c.Status(http.StatusCreated)
+}
+
+// @Summary List all Reservation
+// @Description Get a list of all Reservation
+// @Tags Reservation
+// @Accept json
+// @Produce json
+// @Success 200 {array} entities.Acommodation
+// @Failure 500 {object} entities.Error
+// @Router /reservation [get]
+func (uh *HotelHandler) listReservation(c *gin.Context) {
+	ctx := context.Background()
+
+	acommodations, err := uh.HotelUseCase.ListAcommodations(ctx)
+	if err != nil {
+		errResp := errorUtils.CreateError(err.Error())
+		c.JSON(500, errResp)
+		return
+	}
+
+	c.JSON(200, acommodations)
 }
